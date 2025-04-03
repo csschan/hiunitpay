@@ -1,0 +1,84 @@
+/**
+ * Link Card 样式表
+ */
+
+/* 全局样式 */
+body {
+  background-color: #f8f9fa;
+  color: #212529;
+}
+
+/* 卡片样式 */
+.card {
+  margin-bottom: 1.5rem;
+  border: none;
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.card-header {
+  background-color: #fff;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+  font-weight: 500;
+}
+
+/* 按钮样式 */
+.btn-primary {
+  background-color: #0d6efd;
+  border-color: #0d6efd;
+}
+
+.btn-success {
+  background-color: #198754;
+  border-color: #198754;
+}
+
+/* 列表样式 */
+.list-group-item {
+  border-left: none;
+  border-right: none;
+  padding: 1rem;
+}
+
+/* 状态标签样式 */
+.badge {
+  font-weight: 500;
+  padding: 0.5em 0.75em;
+}
+
+/* 表单样式 */
+.form-control:focus {
+  border-color: #86b7fe;
+  box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+/* 钱包地址显示样式 */
+.text-truncate {
+  max-width: 150px;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* 模态框样式 */
+.modal-content {
+  border: none;
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+/* 导航标签样式 */
+.nav-tabs .nav-link.active {
+  font-weight: 500;
+  color: #0d6efd;
+  border-bottom: 2px solid #0d6efd;
+}
+
+.nav-tabs .nav-link {
+  color: #6c757d;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
