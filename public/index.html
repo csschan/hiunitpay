@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Link Card - 扫码支付系统</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="container">
+    <header class="py-3 mb-4 border-bottom">
+      <div class="d-flex align-items-center">
+        <h1 class="fs-4">Link Card</h1>
+        <span class="badge bg-primary ms-2">MVP</span>
+      </div>
+    </header>
+    
+    <main>
+      <!-- 用户未连接钱包 -->
+      <div id="wallet-connect-section" class="text-center py-5">
+        <h2>连接钱包开始使用</h2>
+        <p class="lead">通过连接以太坊钱包，使用Link Card进行扫码支付</p>
+        <button id="connect-wallet-btn" class="btn btn-primary btn-lg">连接钱包</button>
+      </div>
+      
+      <!-- 用户已连接钱包 -->
+      <div id="user-dashboard" class="d-none">
+        <div class="row">
+          <div class="col-md-4">
+            <div class="card mb-4">
+              <div class="card-header">钱包信息</div>
+              <div class="card-body">
+                <p class="mb-1">地址: <span id="wallet-address" class="text-truncate d-inline-block" style="max-width: 180px;"></span></p>
+                <p class="mb-0">状态: <span class="badge bg-success">已连接</span></p>
+              </div>
+            </div>
+          </div>
+          
+          <div class="col-md-8">
+            <div class="card">
+              <div class="card-header">扫码支付</div>
+              <div class="card-body">
+                <div class="mb-3">
+                  <button id="scan-qr-btn" class="btn btn-primary">扫描二维码</button>
+                  <input type="file" id="qr-file-input" accept="image/*" class="d-none">
+                </div>
+                
+                <div id="payment-form" class="d-none">
+                  <div class="mb-3">
+                    <label for="qr-content" class="form-label">二维码内容</label>
+                    <input type="text" class="form-control" id="qr-content" readonly>
+                  </div>
+                  
+                  <div class="mb-3">
+                    <label for="payment-platform" class="form-label">支付平台</label>
+                    <input type="text" class="form-control" id="payment-platform" readonly>
+                  </div>
+                  
+                  <div class="mb-3">
+                    <label for="payment-amount" class="form-label">支付金额</label>
+                    <input type="number" class="form-control" id="payment-amount" step="0.01" min="0.01" required>
+                  </div>
+                  
+                  <div class="mb-3">
+                    <label for="payment-description" class="form-label">备注</label>
+                    <input type="text" class="form-control" id="payment-description">
+                  </div>
+                  
+                  <button id="create-payment-btn" class="btn btn-success">创建支付</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 支付任务列表 -->
+        <div class="card mt-4">
+          <div class="card-header">我的支付任务</div>
+          <div class="card-body">
+            <div id="payment-tasks-list" class="list-group">
+              <!-- 任务列表将通过JS动态加载 -->
+              <div class="text-center py-3" id="no-tasks-message">
+                <p class="text-muted">暂无支付任务</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 支付确认模态框 -->
+      <div class="modal fade" id="confirm-payment-modal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">确认收到服务</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <p>LP已完成支付，请确认您是否已收到服务？</p>
+              <div class="alert alert-info">
+                <small>确认后，将从您的钱包转账 <span id="confirm-amount"></span> USDT 到LP钱包</small>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+              <button type="button" class="btn btn-primary" id="confirm-received-btn">确认收到</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+    
+    <footer class="py-3 my-4 border-top">
+      <p class="text-center text-muted">© 2023 Link Card</p>
+    </footer>
+  </div>
+  
+  <!-- 脚本 -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.6.1/dist/socket.io.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+  <script src="/js/app.js"></script>
