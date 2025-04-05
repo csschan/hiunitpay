@@ -146,16 +146,43 @@ function connectSocket() {
     // 更新任务状态
     updateTaskStatus(data.paymentIntentId, 'settled');
     
-    // 显示成功消息
-    alert(`支付已成功结算，交易哈希: ${data.txHash}`);
+    // 获取任务详情并显示成功界面
+    fetch(`${API_BASE_URL}/payment-intent/${data.paymentIntentId}`)
+      .then(response => response.json())
+      .then(result => {
+        if (result.success) {
+          const paymentIntent = result.data;
+          // 显示交易成功界面
+          showTransactionProcessingModal({
+            status: 'success',
+            message: '支付已成功结算',
+            lpAddress: paymentIntent.lp.walletAddress,
+            amount: paymentIntent.amount,
+            txHash: data.txHash
+          });
+        }
+      })
+      .catch(error => {
+        console.error('获取支付详情失败:', error);
+        // 显示简化版成功界面
+        showTransactionProcessingModal({
+          status: 'success',
+          message: '支付已成功结算',
+          txHash: data.txHash
+        });
+      });
   });
   
   // 监听结算失败事件
   socket.on('settlement_failed', (data) => {
     console.log('结算失败:', data);
     
-    // 显示失败消息
-    alert(`结算失败: ${data.error}`);
+    // 显示失败界面
+    showTransactionProcessingModal({
+      status: 'error',
+      message: `结算失败: ${data.error}`,
+      paymentIntentId: data.paymentIntentId
+    });
   });
   
   // 断开连接事件
@@ -479,41 +506,104 @@ async function confirmPaymentReceived() {
       return;
     }
     
-    // 准备请求数据
-    const data = {
-      walletAddress
-    };
+    // 显示处理中提示
+    confirmReceivedBtn.disabled = true;
+    confirmReceivedBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 处理中...';
     
-    // 在实际项目中，这里应该添加签名逻辑
-    // data.signature = await signer.signMessage(...);
-    
-    // 发送请求
-    const response = await fetch(`${API_BASE_URL}/payment-intent/${currentPaymentIntentId}/confirm`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(data)
-    });
-    
+    // 获取支付意图详情
+    const response = await fetch(`${API_BASE_URL}/payment-intent/${currentPaymentIntentId}`);
     const result = await response.json();
     
-    if (result.success) {
-      // 关闭模态框
-      confirmPaymentModal.hide();
+    if (!result.success) {
+      throw new Error(result.message || '获取支付详情失败');
+    }
+    
+    const paymentIntent = result.data;
+    const lpWalletAddress = paymentIntent.lp.walletAddress;
+    const amount = paymentIntent.amount;
+    
+    // 转换为USDT金额（6位小数）
+    const usdtAmount = ethers.utils.parseUnits(amount.toString(), 6);
+    
+    try {
+      // 1. 获取结算合约地址
+      const contractResponse = await fetch(`${API_BASE_URL}/contract-info`);
+      const contractResult = await contractResponse.json();
       
-      // 更新任务状态
-      updateTaskStatus(currentPaymentIntentId, 'user_confirmed');
+      if (!contractResult.success) {
+        throw new Error('获取合约信息失败');
+      }
       
-      // 显示成功消息
-      alert('确认成功，正在进行链上结算');
-    } else {
-      alert('确认失败: ' + result.message);
+      const contractAddress = contractResult.data.contractAddress;
+      const usdtAddress = contractResult.data.usdtAddress;
+      
+      // 2. 创建USDT合约实例
+      const usdtContract = new ethers.Contract(
+        usdtAddress,
+        [
+          'function approve(address spender, uint256 amount) returns (bool)'
+        ],
+        signer
+      );
+      
+      // 3. 授权结算合约转移用户的USDT
+      const approveTx = await usdtContract.approve(contractAddress, usdtAmount);
+      
+      // 显示授权中提示
+      confirmReceivedBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 授权中...';
+      
+      // 等待授权交易确认
+      const approveReceipt = await approveTx.wait();
+      console.log('授权成功，交易哈希:', approveReceipt.transactionHash);
+      
+      // 4. 准备请求数据
+      const data = {
+        walletAddress,
+        txHash: approveReceipt.transactionHash
+      };
+      
+      // 显示确认中提示
+      confirmReceivedBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 确认中...';
+      
+      // 5. 发送确认请求
+      const confirmResponse = await fetch(`${API_BASE_URL}/payment-intent/${currentPaymentIntentId}/confirm`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+      });
+      
+      const confirmResult = await confirmResponse.json();
+      
+      if (confirmResult.success) {
+        // 关闭模态框
+        confirmPaymentModal.hide();
+        
+        // 更新任务状态
+        updateTaskStatus(currentPaymentIntentId, 'user_confirmed');
+        
+        // 显示成功消息
+        showTransactionProcessingModal({
+          status: 'processing',
+          message: '确认成功，正在进行链上结算',
+          lpAddress: lpWalletAddress,
+          amount: amount
+        });
+      } else {
+        throw new Error(confirmResult.message || '确认失败');
+      }
+    } catch (txError) {
+      console.error('交易失败:', txError);
+      alert('交易失败: ' + (txError.message || '未知错误'));
     }
   } catch (error) {
     console.error('确认失败:', error);
-    alert('确认失败: ' + error.message);
+    alert('确认失败: ' + (error.message || '未知错误'));
   } finally {
+    // 恢复按钮状态
+    confirmReceivedBtn.disabled = false;
+    confirmReceivedBtn.textContent = '确认收到';
     currentPaymentIntentId = null;
   }
 }
@@ -555,6 +645,80 @@ async function cancelPaymentIntent(taskId) {
     console.error('取消失败:', error);
     alert('取消失败: ' + error.message);
   }
+}
+
+// 显示交易处理模态框
+function showTransactionProcessingModal(data) {
+  const modal = document.getElementById('transaction-status-modal');
+  const statusProcessing = document.getElementById('status-processing');
+  const statusSuccess = document.getElementById('status-success');
+  const statusError = document.getElementById('status-error');
+  const txLpAddress = document.getElementById('tx-lp-address');
+  const txAmount = document.getElementById('tx-amount');
+  const txHashContainer = document.getElementById('tx-hash-container');
+  const txHash = document.getElementById('tx-hash');
+  const viewExplorerBtn = document.getElementById('view-explorer-btn');
+  const closeBtn = document.querySelector('.close-transaction');
+  const closeTransactionBtn = document.getElementById('close-transaction-btn');
+  
+  // 重置所有状态
+  statusProcessing.style.display = 'none';
+  statusSuccess.style.display = 'none';
+  statusError.style.display = 'none';
+  txHashContainer.style.display = 'none';
+  viewExplorerBtn.style.display = 'none';
+  
+  // 设置LP地址和金额
+  if (data.lpAddress) {
+    txLpAddress.textContent = data.lpAddress;
+  } else {
+    txLpAddress.textContent = '未知';
+  }
+  
+  if (data.amount) {
+    txAmount.textContent = `${data.amount} USDT`;
+  } else {
+    txAmount.textContent = '未知';
+  }
+  
+  // 根据状态显示不同内容
+  if (data.status === 'processing') {
+    statusProcessing.style.display = 'block';
+  } else if (data.status === 'success') {
+    statusSuccess.style.display = 'block';
+    
+    // 显示交易哈希
+    if (data.txHash) {
+      txHashContainer.style.display = 'flex';
+      txHash.textContent = data.txHash;
+      
+      // 设置区块浏览器链接
+      const explorerUrl = `https://goerli.etherscan.io/tx/${data.txHash}`;
+      viewExplorerBtn.href = explorerUrl;
+      viewExplorerBtn.style.display = 'inline-block';
+    }
+  } else if (data.status === 'error') {
+    statusError.style.display = 'block';
+  }
+  
+  // 显示模态框
+  modal.style.display = 'block';
+  
+  // 关闭按钮事件
+  closeBtn.onclick = function() {
+    modal.style.display = 'none';
+  };
+  
+  closeTransactionBtn.onclick = function() {
+    modal.style.display = 'none';
+  };
+  
+  // 点击模态框外部关闭
+  window.onclick = function(event) {
+    if (event.target === modal) {
+      modal.style.display = 'none';
+    }
+  };
 }
 
 // 页面加载完成后初始化应用
