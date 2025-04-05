@@ -2,6 +2,7 @@ const { ethers } = require('ethers');
 const PaymentIntent = require('../models/PaymentIntent');
 const LP = require('../models/LP');
 const User = require('../models/User');
+const LinkCardSettlementABI = require('../../contracts/LinkCardSettlement.json');
 
 /**
  * 结算服务
@@ -30,6 +31,13 @@ class SettlementService {
         'function approve(address spender, uint256 amount) returns (bool)',
         'function transferFrom(address from, address to, uint256 amount) returns (bool)'
       ],
+      this.adminWallet
+    );
+    
+    // 初始化结算合约
+    this.settlementContract = new ethers.Contract(
+      process.env.CONTRACT_ADDRESS,
+      LinkCardSettlementABI,
       this.adminWallet
     );
   }
@@ -75,11 +83,10 @@ class SettlementService {
         throw new Error('用户USDT余额不足');
       }
       
-      // 执行USDT转账（从用户到LP）
-      // 注意：这里假设用户已经授权了合约可以转移他们的USDT
-      // 实际项目中需要先检查授权额度，如果不足则需要用户先进行授权
-      const tx = await this.usdtContract.transferFrom(
-        userWallet,
+      // 调用结算合约的settlePayment方法
+      // 注意：用户必须事先授权结算合约可以转移其USDT
+      // 在前端用户确认收货时，需要先进行授权操作
+      const tx = await this.settlementContract.settlePayment(
         lpWallet,
         usdtAmount
       );
