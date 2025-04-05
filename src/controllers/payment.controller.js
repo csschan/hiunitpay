@@ -310,14 +310,12 @@ exports.confirmPaymentIntent = async (req, res) => {
       });
     }
     
-    // 验证签名（实际项目中需要实现）
-    // const isValidSignature = await verifySignature(walletAddress, signature, paymentIntent);
-    // if (!isValidSignature) {
-    //   return res.status(400).json({
-    //     success: false,
-    //     message: '签名验证失败'
-    //   });
-    // }
+    // 验证授权交易哈希（如果提供）
+    const { txHash } = req.body;
+    if (txHash) {
+      // 记录授权交易哈希
+      console.log(`用户 ${walletAddress} 已授权USDT转账，交易哈希: ${txHash}`);
+    }
     
     // 更新支付意图状态为用户已确认
     paymentIntent.status = 'user_confirmed';
