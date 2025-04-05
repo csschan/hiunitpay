@@ -4,6 +4,7 @@ const router = express.Router();
 // 导入控制器
 const paymentController = require('../controllers/payment.controller');
 const lpController = require('../controllers/lp.controller');
+const contractController = require('../controllers/contract.controller');
 
 // 支付意图路由
 router.post('/payment-intent', paymentController.createPaymentIntent);
@@ -20,5 +21,8 @@ router.get('/lp/:walletAddress', lpController.getLP);
 router.get('/lp/task-pool', lpController.getTaskPool);
 router.post('/lp/task/:id/claim', lpController.claimTask);
 router.post('/lp/task/:id/mark-paid', lpController.markTaskPaid);
+
+// 合约路由
+router.get('/contract-info', contractController.getContractInfo);
 
 module.exports = router;
